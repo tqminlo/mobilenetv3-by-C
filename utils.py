@@ -55,7 +55,35 @@ def npy_to_txt():
             f.write(tensor_bias_text)
 
 
+def txt_to_weight_code():
+    txt_dir = "weights/txt"
+    txtcode = "weights.c"
+    txts = os.listdir(txt_dir)
+
+    with open(txtcode, "w") as f:
+        for txt in txts:
+            txt_path = os.path.join(txt_dir, txt)
+            with open(txt_path, "r") as f1:
+                head = "int " + txt.split('_')[1] + "_" + txt.split('_')[0] + f"[{txt.split('_')[2].split('.')[0].replace('x', '*')}] = "
+                content = f1.readline()
+                f1.close()
+            line = head + content + ";\n\n"
+            f.write(line)
+
+
+def txt_to_main_code():
+    txt_dir = "weights/txt"
+    main_code = "inference_v2.c"
+    txts = os.listdir(txt_dir)
+
+    with open(main_code, "w") as f:
+        for txt in txts:
+            line = "int extern " + txt.split('_')[1] + "_" + txt.split('_')[0] + f"[{txt.split('_')[2].split('.')[0].replace('x', '*')}];\n"
+            f.write(line)
+
+
 
 if __name__ == "__main__":
     npy_to_txt()
-
+    txt_to_weight_code()
+    txt_to_main_code()
