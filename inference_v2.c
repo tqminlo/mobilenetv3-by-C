@@ -100,9 +100,10 @@ int extern weight_pw8[40*1*1*120];
 int extern bias_pw9[120];
 int extern weight_pw9[120*1*1*40];
 
-int tensor0[300000] = {0};
-int tensor1[300000] = {0};
-int tensor2[300000] = {0};
+int tensor0[407934] = {0};
+int tensor1[407934] = {0};
+int tensor2[407934] = {0};  // tensor for padding input
+int tensor3[407934] = {0};  // tensor for holding to add
 
 
 void padding_inp(int stride, int size, int fil, int *tensor_inp, int *tensor_pad){
@@ -224,8 +225,8 @@ void dw(int stride, int out_size, int fil, int *tensor_inp, int *tensor_pad, int
                         int id_pad = offset(i*stride+ii, j*stride+jj, k, inp_size+3-stride, fil);
                         int id_kernel = offset(ii, jj, k, 3, fil);
                         sum += tensor_pad[id_pad] * kernel[id_kernel];
-                        }
                     }
+                }
                 int id_out = offset(i, j, k, out_size, fil);
                 tensor_out[id_out] = sum + bias[k]; // bias
             }
@@ -244,15 +245,104 @@ void add(int size, int fil, int *tensor_inp1, int *tensor_inp2, int *tensor_out)
     }
 }
 
+void avgpool(int size, int fil, int *tensor_inp, int *tensor_out){
+    for (int k = 0; k < fil; k++) {
+        int sum = 0;
+        for (int i = 0; i < size; i++) {
+            for (int j = 0; j < size; j++){
+                int id_off = offset(i, j, k, size, fil);
+                sum += tensor_inp[id_off];
+            }
+        }
+        tensor_out[k] = sum / (size*size);
+    }
+}
+
 int main(){
     init_input(tensor0);
-    conv(224, 112, 3, 16, tensor0, tensor1, tensor2, weight_cv0, bias_cv0);
-    printf("%d\n", tensor2[10]);
-    dw(1, 112, 16, tensor2, tensor1, tensor0, weight_dw0, bias_dw0);
-    printf("%d\n", tensor0[10]);
+    printf("%d\n", tensor0[1]);
+    conv(224, 112, 3, 16, tensor0, tensor2, tensor3, weight_cv0, bias_cv0);
+    printf("%d\n", tensor3[1]);
+    dw(1, 112, 16, tensor3, tensor2, tensor0, weight_dw0, bias_dw0);
+    printf("%d\n", tensor0[1]);
     pw(112, 16, 16, tensor0, tensor1, weight_pw0, bias_pw0);
-    printf("%d\n", tensor1[10]);
-    add(112, 16, tensor2, tensor1, tensor0);
-    printf("%d\n", tensor0[10]);
+    printf("%d\n", tensor1[1]);
+    add(112, 16, tensor3, tensor1, tensor0);
+    printf("%d\n", tensor0[1]);
 
+    pw(112, 16, 64, tensor0, tensor1, weight_pw1, bias_pw1);
+    printf("%d\n", tensor1[1]);
+    dw(2, 56, 64, tensor1, tensor2, tensor0, weight_dw1, bias_dw1); //dw1
+    printf("%d\n", tensor0[1]);
+    pw(56, 64, 24, tensor0, tensor3, weight_pw2, bias_pw2); //pw2
+    printf("%d\n", tensor3[1]);
+    pw(56, 24, 72, tensor3, tensor0, weight_pw3, bias_pw3); //pw3
+    printf("%d\n", tensor0[1]);
+    dw(1, 56, 72, tensor0, tensor2, tensor1, weight_dw2, bias_dw2);
+    printf("%d\n", tensor1[1]);
+    pw(56, 72, 24, tensor1, tensor0, weight_pw4, bias_pw4); //pw4
+    printf("%d\n", tensor0[1]);
+    add(56, 24, tensor3, tensor0, tensor1);
+    printf("%d\n", tensor1[1]);
+
+    pw(56, 24, 72, tensor1, tensor0, weight_pw5, bias_pw5); //pw5
+    dw(2, 28, 72, tensor0, tensor2, tensor1, weight_dw3, bias_dw3); //dw1
+    pw(28, 72, 40, tensor1, tensor3, weight_pw6, bias_pw6); //pw6
+    pw(28, 40, 120, tensor3, tensor1, weight_pw7, bias_pw7); //pw8
+    dw(1, 28, 120, tensor1, tensor2, tensor0, weight_dw4, bias_dw4);
+    pw(28, 120, 40, tensor0, tensor1, weight_pw8, bias_pw8); //pw8
+    add(28, 40, tensor3, tensor1, tensor3);
+
+    pw(28, 40, 120, tensor3, tensor1, weight_pw9, bias_pw9); //pw9
+    dw(1, 28, 120, tensor1, tensor2, tensor0, weight_dw5, bias_dw5);
+    pw(28, 120, 40, tensor0, tensor1, weight_pw10, bias_pw10); //pw10
+    add(28, 40, tensor3, tensor1, tensor0);
+
+    pw(28, 40, 240, tensor0, tensor1, weight_pw11, bias_pw11); //pw11
+    dw(2, 14, 240, tensor1, tensor2, tensor0, weight_dw6, bias_dw6);
+    pw(14, 240, 80, tensor0, tensor3, weight_pw12, bias_pw12); //pw12
+    pw(14, 80, 200, tensor3, tensor0, weight_pw13, bias_pw13); //pw13
+    dw(1, 14, 200, tensor0, tensor2, tensor1, weight_dw7, bias_dw7);
+    pw(14, 200, 80, tensor1, tensor0, weight_pw14, bias_pw14); //pw14
+    add(14, 80, tensor3, tensor0, tensor3);
+
+    pw(14, 80, 184, tensor3, tensor0, weight_pw15, bias_pw15); //pw15
+    dw(1, 14, 184, tensor0, tensor2, tensor1, weight_dw8, bias_dw8);
+    pw(14, 184, 80, tensor1, tensor0, weight_pw16, bias_pw16); //pw16
+    add(14, 80, tensor3, tensor0, tensor3);
+
+    pw(14, 80, 184, tensor3, tensor0, weight_pw17, bias_pw17); //pw17
+    dw(1, 14, 184, tensor0, tensor2, tensor1, weight_dw9, bias_dw9);
+    pw(14, 184, 80, tensor1, tensor0, weight_pw18, bias_pw18); //pw18
+    add(14, 80, tensor3, tensor0, tensor1);
+
+    pw(14, 80, 480, tensor1, tensor0, weight_pw19, bias_pw19); //pw19
+    dw(1, 14, 480, tensor0, tensor2, tensor1, weight_dw10, bias_dw10);
+    pw(14, 480, 112, tensor1, tensor3, weight_pw20, bias_pw20); //pw20
+    pw(14, 112, 672, tensor3, tensor0, weight_pw21, bias_pw21); //pw21
+    dw(1, 14, 672, tensor0, tensor2, tensor1, weight_dw11, bias_dw11);
+    pw(14, 672, 112, tensor1, tensor0, weight_pw22, bias_pw22); //pw22
+    add(14, 112, tensor3, tensor0, tensor1);
+
+    pw(14, 112, 672, tensor1, tensor0, weight_pw23, bias_pw23); //pw23
+    dw(2, 7, 672, tensor0, tensor2, tensor1, weight_dw12, bias_dw12);
+    pw(7, 672, 160, tensor1, tensor3, weight_pw24, bias_pw24); //pw24
+    pw(7, 160, 960, tensor3, tensor0, weight_pw25, bias_pw25); //pw25
+    dw(1, 7, 960, tensor0, tensor2, tensor1, weight_dw13, bias_dw13);
+    pw(7, 960, 160, tensor1, tensor0, weight_pw26, bias_pw26); //pw26
+    add(7, 160, tensor3, tensor0, tensor3);
+
+    pw(7, 160, 960, tensor3, tensor0, weight_pw27, bias_pw27); //pw27
+    dw(1, 7, 960, tensor0, tensor2, tensor1, weight_dw14, bias_dw14);
+    pw(7, 960, 160, tensor1, tensor0, weight_pw28, bias_pw28); //pw28
+    add(7, 160, tensor3, tensor0, tensor1);
+
+    pw(7, 160, 960, tensor1, tensor0, weight_pw29, bias_pw29); //pw29
+    avgpool(7, 960, tensor0, tensor1);
+    pw(1, 960, 1280, tensor1, tensor0, weight_pw30, bias_pw30); //pw30
+    avgpool(1, 1280, tensor0, tensor1);
+    pw(1, 1280, 1001, tensor1, tensor0, weight_pw31, bias_pw31); //pw31
+    printf("%d\n", tensor0[1]);
+
+    printf("kkk");
 }
